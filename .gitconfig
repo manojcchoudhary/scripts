@@ -1,0 +1,40 @@
+# This is Git's per-user configuration file.
+[user]
+# Please adapt and uncomment the following lines:
+#	name = My Name
+#	email = myname@example.com
+[core]
+    editor = code --new-window --wait
+# [diff]
+#     tool = vscode-diff
+# [difftool]
+#     prompt = false
+# [difftool "vscode-diff"]
+#     cmd = code --wait --diff $LOCAL $REMOTE
+[merge]
+    tool = vscode
+[mergetool "vscode"]
+  # Comment: Original way before three-way merge shown commented out
+     cmd = code --wait $MERGED
+  # Comment: For "Three-way merge"
+    # cmd = code --wait --merge $REMOTE $LOCAL $BASE $MERGED
+    # cmd = code --wait --diff $LOCAL $REMOTE
+[diff]
+    tool = vscode
+[difftool "vscode"]
+    cmd = code --wait --diff $LOCAL $REMOTE
+[alias]
+    st = status
+    egc = config --global -e
+    elc = config --local -e
+    esc = config --system -e
+    co = checkout
+    br = branch
+    ct = commit
+    rbc = rebase --continue
+    mt = mergetool
+    dt = difftool
+    jush = push
+    cpk = cherry-pick
+    push-new = push --set-upstream origin
+
