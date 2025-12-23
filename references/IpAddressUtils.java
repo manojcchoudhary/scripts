@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -526,35 +525,58 @@ public class IpAddressUtils {
     }
 
     /**
-     * Extract client IP address from HttpServletRequest
-     * Checks multiple proxy headers and validates IP format
+     * Extract the real client IP from a specific header
+     * Handles comma-separated lists (X-Forwarded-For chains)
+     *
+     * SECURITY: Parses RIGHT-TO-LEFT to prevent IP spoofing
+     * The rightmost IP is added by YOUR trusted proxy and cannot be spoofed
      *
      * @param request HTTP request
-     * @return Client IP address, or "unknown" if unable to determine
+     * @param headerName Header name to check
+     * @return Valid IP address or null
      */
-    public static String getClientIpAddress(HttpServletRequest request) {
-        if (request == null) {
-            return "unknown";
+    private static String extractIpFromHeader(HttpServletRequest request, String headerName) {
+        String headerValue = request.getHeader(headerName);
+
+        if (headerValue == null || headerValue.isEmpty() || "unknown".equalsIgnoreCase(headerValue)) {
+            return null;
         }
 
-        // Try all known headers in order of preference
-        for (String header : IP_HEADERS) {
-            String ip = extractIpFromHeader(request, header);
-            if (!Strings.isBlank(ip)) {
-                log.debug("Client IP extracted from header '{}': {}", header, ip);
+        // Handle comma-separated list (X-Forwarded-For: client, proxy1, proxy2)
+        if (headerValue.contains(",")) {
+            String[] ips = headerValue.split(",");
+
+            // SECURITY: Parse RIGHT-TO-LEFT
+            // Start from the rightmost IP (added by YOUR trusted proxy)
+            // Work backwards until we find the first public IP
+            for (int i = ips.length - 1; i >= 0; i--) {
+                String ip = ips[i].trim();
+
+                // Skip invalid or private IPs
+                if (!isValidIpAddress(ip) || isPrivateIpAddress(ip)) {
+                    continue;
+                }
+
+                // First public IP found (from right to left) is the real client IP
                 return ip;
+            }
+
+            // Fallback: If no public IP found, return the rightmost valid IP
+            for (int i = ips.length - 1; i >= 0; i--) {
+                String ip = ips[i].trim();
+                if (isValidIpAddress(ip)) {
+                    return ip;
+                }
             }
         }
 
-        // Fallback to remote address
-        String remoteAddr = request.getRemoteAddr();
-        if (isValidIpAddress(remoteAddr)) {
-            log.debug("Client IP from remote address: {}", remoteAddr);
-            return remoteAddr;
+        // Single IP address
+        String ip = headerValue.trim();
+        if (isValidIpAddress(ip)) {
+            return ip;
         }
 
-        log.warn("Unable to determine client IP address");
-        return "unknown";
+        return null;
     }
 
     /**
